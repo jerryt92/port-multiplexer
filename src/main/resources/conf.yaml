@@ -1,0 +1,26 @@
+tcp:
+  bind:
+    host: 0.0.0.0
+    port: 30001
+  forward:
+    enabled: ssh,ssl
+    default:
+      0.0.0.0:23
+    ssl:
+      0.0.0.0:443
+    http:
+      0.0.0.0:80
+    ssh:
+      0.0.0.0:22
+    mqtt:
+      0.0.0.0:1883
+udp:
+  bind:
+    host: 0.0.0.0
+    port: 30002
+  forward:
+    enabled: snmp
+    default:
+      0.0.0.0:161
+    snmp:
+      0.0.0.0:161
