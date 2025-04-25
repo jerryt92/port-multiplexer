@@ -46,7 +46,7 @@
         <!--建立一个默认的root的logger-->
         <root level="${outputLogLevel}">
             <appender-ref ref="InfoFile"/>
-<!--            <appender-ref ref="Console"/>-->
+            <appender-ref ref="Console"/>
         </root>
     </loggers>
 </configuration>
