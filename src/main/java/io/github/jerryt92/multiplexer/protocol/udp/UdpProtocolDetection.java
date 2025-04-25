@@ -28,6 +28,6 @@ public final class UdpProtocolDetection {
         // Add more protocol checks here
 
         // Unknown protocol
-        return UdpProtocolType.SNMP;
+        return UdpProtocolType.UNKNOWN;
     }
 }

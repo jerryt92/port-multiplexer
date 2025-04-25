@@ -30,7 +30,7 @@ public class TcpForwardRule {
             TcpProtocolType protocol = TcpProtocolDetection.detectProtocol(msgByteBuf);
             String address;
             int port;
-            if (forwardConfig.getEnableProtocols().contains(protocol)) {
+            if (forwardConfig.getAllowedProtocols().contains(protocol)) {
                 switch (protocol) {
                     case SSL_TLS:
                         address = forwardConfig.getSsl().split(":")[0];

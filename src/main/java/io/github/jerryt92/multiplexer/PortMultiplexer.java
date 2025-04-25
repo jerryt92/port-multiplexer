@@ -27,8 +27,12 @@ public class PortMultiplexer {
 
     public static void main(String[] args) {
         ConfigReader.AppConfig appConfig = ConfigReader.INSTANCE.getAppConfig();
-        runTcpServer(appConfig);
-        runUdpServer(appConfig);
+        if (appConfig.isTcpEnabled()) {
+            runTcpServer(appConfig);
+        }
+        if (appConfig.isUdpEnabled()) {
+            runUdpServer(appConfig);
+        }
     }
 
     private static void runTcpServer(ConfigReader.AppConfig appConfig) {
@@ -84,7 +88,6 @@ public class PortMultiplexer {
                         .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(16384))
                         .channel(NioDatagramChannel.class)
                         .handler(udpChannelHandler)
-                        // 设置并发连接数
                         .bind(appConfig.getBindConfig().getUdpHost(), appConfig.getBindConfig().getUdpPort())
                         .addListener(future -> {
                             if (future.isSuccess()) {

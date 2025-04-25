@@ -1,9 +1,10 @@
 tcp:
+  enabled: true
   bind:
     host: 0.0.0.0
     port: 30001
   forward:
-    enabled: ssh,ssl
+    allowed: ssh,ssl
     default:
       0.0.0.0:23
     ssl:
@@ -15,11 +16,12 @@ tcp:
     mqtt:
       0.0.0.0:1883
 udp:
+  enabled: true
   bind:
     host: 0.0.0.0
     port: 30002
   forward:
-    enabled: snmp
+    allowed: snmp
     default:
       0.0.0.0:161
     snmp:

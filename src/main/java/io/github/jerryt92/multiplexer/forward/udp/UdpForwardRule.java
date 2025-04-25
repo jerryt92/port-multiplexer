@@ -29,7 +29,7 @@ public class UdpForwardRule {
             UdpProtocolType protocol = UdpProtocolDetection.detectProtocol(msg);
             String address;
             int port;
-            if (forwardConfig.getEnableProtocols().contains(protocol)) {
+            if (forwardConfig.getAllowedProtocols().contains(protocol)) {
                 switch (protocol) {
                     case SNMP:
                         address = forwardConfig.getSnmp().split(":")[0];
