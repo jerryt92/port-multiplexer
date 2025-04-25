@@ -24,8 +24,10 @@ import org.apache.logging.log4j.Logger;
  */
 public class PortMultiplexer {
     private static final Logger log = LogManager.getLogger(PortMultiplexer.class);
+    private static long startTime;
 
     public static void main(String[] args) {
+        startTime = System.currentTimeMillis();
         ConfigReader.AppConfig appConfig = ConfigReader.INSTANCE.getAppConfig();
         if (appConfig.isTcpEnabled()) {
             runTcpServer(appConfig);
@@ -55,7 +57,7 @@ public class PortMultiplexer {
                         .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
                         .addListener(future -> {
                             if (future.isSuccess()) {
-                                log.info("PortMultiplexer started at tcp-port {}", appConfig.getBindConfig().getTcpPort());
+                                log.info("PortMultiplexer started at tcp-port {} in {}ms", appConfig.getBindConfig().getTcpPort(), System.currentTimeMillis() - startTime);
                             } else {
                                 log.error("Failed to start PortMultiplexer", future.cause());
                             }
@@ -91,7 +93,7 @@ public class PortMultiplexer {
                         .bind(appConfig.getBindConfig().getUdpHost(), appConfig.getBindConfig().getUdpPort())
                         .addListener(future -> {
                             if (future.isSuccess()) {
-                                log.info("PortMultiplexer started at udp-port {}", appConfig.getBindConfig().getUdpPort());
+                                log.info("PortMultiplexer started at udp-port {} in {}ms", appConfig.getBindConfig().getUdpPort(), System.currentTimeMillis() - startTime);
                             } else {
                                 log.error("Failed to start PortMultiplexer", future.cause());
                             }
