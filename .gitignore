@@ -78,7 +78,6 @@ tags
 ########### eclipse
 
 .metadata
-bin/
 tmp/
 *.tmp
 *.bak
