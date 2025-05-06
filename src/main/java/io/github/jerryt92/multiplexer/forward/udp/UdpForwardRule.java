@@ -4,7 +4,6 @@ import io.github.jerryt92.multiplexer.conf.ConfigReader;
 import io.github.jerryt92.multiplexer.entity.ForwardTarget;
 import io.github.jerryt92.multiplexer.protocol.udp.UdpProtocolDetection;
 import io.github.jerryt92.multiplexer.protocol.udp.UdpProtocolType;
-import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.socket.DatagramPacket;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,11 +15,11 @@ import org.apache.logging.log4j.Logger;
 public class UdpForwardRule {
     private static final Logger log = LogManager.getLogger(UdpForwardRule.class);
 
-    public ForwardTarget getRoute(ChannelHandlerContext ctx, DatagramPacket msg) {
+    public ForwardTarget getRoute(DatagramPacket msg) {
         ConfigReader.UdpForwardConfig forwardConfig = ConfigReader.INSTANCE.getAppConfig().getUdpForwardConfig();
         try {
             // Get route from cache
-            ForwardTarget route = UdpChannelCache.getChannelRouteCache().get(ctx.channel());
+            ForwardTarget route = UdpChannelCache.getChannelRouteCache().get(msg.sender());
             if (route != null) {
                 return route;
             }
@@ -43,9 +42,8 @@ public class UdpForwardRule {
             } else {
                 route = new ForwardTarget().setReject(true);
             }
-            UdpChannelCache.getChannelRouteCache().put(ctx.channel(), route);
-            log.debug("Src address: {}", ctx.channel().remoteAddress());
-            log.debug("Dst address: {}", ctx.channel().localAddress());
+            UdpChannelCache.getChannelRouteCache().put(msg.sender(), route);
+            log.debug("Src address: {}", msg.sender());
             log.debug("Protocol: {}", protocol);
             return route;
         } catch (Exception e) {

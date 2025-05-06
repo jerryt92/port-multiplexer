@@ -21,22 +21,22 @@ public class UdpChannelCache {
     }
 
     /**
-     * TCP通道的缓存
-     * Channel's proxy client cache
+     * UDP会话通道的缓存
+     * UDP-Session's proxy client cache
      */
     private final ConcurrentHashMap<InetSocketAddress, Channel> channelClientCache = new ConcurrentHashMap<>();
     /**
-     * 通道的Http路由缓存
-     * Channel's Http route cache
+     * UDP会话的转发缓存
+     * UDP-Session's forward cache
      */
-    private final ConcurrentHashMap<Channel, ForwardTarget> channelRouteCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<InetSocketAddress, ForwardTarget> channelRouteCache = new ConcurrentHashMap<>();
 
     public static ConcurrentHashMap<InetSocketAddress, Channel> getChannelClientCache() {
         UdpChannelCache instance = getInstance();
         return instance.channelClientCache;
     }
 
-    public static ConcurrentHashMap<Channel, ForwardTarget> getChannelRouteCache() {
+    public static ConcurrentHashMap<InetSocketAddress, ForwardTarget> getChannelRouteCache() {
         UdpChannelCache instance = getInstance();
         return instance.channelRouteCache;
     }

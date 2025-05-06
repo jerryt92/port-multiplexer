@@ -4,9 +4,11 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 public class TcpResponseHandler extends ChannelInboundHandlerAdapter {
-
+    private static final Logger log = LogManager.getLogger(TcpResponseHandler.class);
     private final Channel inboundChannel;
 
     public TcpResponseHandler(Channel inboundChannel) {
@@ -40,7 +42,7 @@ public class TcpResponseHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
+        log.error("", cause);
         TcpRequestHandler.closeOnFlush(ctx.channel());
     }
 }

@@ -25,8 +25,8 @@ public class TcpChannelCache {
      */
     private final ConcurrentHashMap<Channel, Channel> channelClientCache = new ConcurrentHashMap<>();
     /**
-     * 通道的Http路由缓存
-     * Channel's Http route cache
+     * 通道的转发缓存
+     * Channel's forward cache
      */
     private final ConcurrentHashMap<Channel, ForwardTarget> channelRouteCache = new ConcurrentHashMap<>();
 

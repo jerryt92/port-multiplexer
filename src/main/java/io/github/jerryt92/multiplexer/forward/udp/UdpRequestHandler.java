@@ -34,7 +34,7 @@ public class UdpRequestHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(final ChannelHandlerContext ctx, Object msg) {
         try {
             DatagramPacket msgPacket = (DatagramPacket) msg;
-            ForwardTarget forwardTarget = udpForwardRule.getRoute(ctx, msgPacket);
+            ForwardTarget forwardTarget = udpForwardRule.getRoute(msgPacket);
             if (forwardTarget == null || forwardTarget.isReject()) {
                 ctx.channel().close();
                 return;
@@ -65,13 +65,6 @@ public class UdpRequestHandler extends ChannelInboundHandlerAdapter {
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("", cause);
         closeOnFlush(ctx.channel());
-    }
-
-    @Override
-    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        UdpChannelCache.getChannelClientCache().remove(ctx.channel());
-        UdpChannelCache.getChannelRouteCache().remove(ctx.channel());
-        super.channelInactive(ctx);
     }
 
     /**

@@ -51,13 +51,15 @@ public class UdpResponseHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        cause.printStackTrace();
+        log.error("", cause);
         UdpRequestHandler.closeOnFlush(ctx.channel());
     }
 
     // 关闭连接
     @Override
-    public void channelInactive(ChannelHandlerContext ctx) {
+    public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         UdpChannelCache.getChannelClientCache().remove(srcSocketAddress);
+        UdpChannelCache.getChannelRouteCache().remove(srcSocketAddress);
+        super.channelInactive(ctx);
     }
 }
