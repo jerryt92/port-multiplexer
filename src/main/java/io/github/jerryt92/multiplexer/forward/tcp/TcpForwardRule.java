@@ -1,7 +1,7 @@
 package io.github.jerryt92.multiplexer.forward.tcp;
 
 import io.github.jerryt92.multiplexer.protocol.tcp.TcpProtocolType;
-import io.github.jerryt92.multiplexer.conf.ConfigReader;
+import io.github.jerryt92.multiplexer.conf.ConfigService;
 import io.github.jerryt92.multiplexer.entity.ForwardTarget;
 import io.github.jerryt92.multiplexer.protocol.tcp.TcpProtocolDetection;
 import io.netty.buffer.ByteBuf;
@@ -17,7 +17,7 @@ public class TcpForwardRule {
     private static final Logger log = LogManager.getLogger(TcpForwardRule.class);
 
     public ForwardTarget getRoute(ChannelHandlerContext ctx, Object msg) {
-        ConfigReader.TcpForwardConfig forwardConfig = ConfigReader.INSTANCE.getAppConfig().getTcpForwardConfig();
+        ConfigService.TcpForwardConfig forwardConfig = ConfigService.INSTANCE.getAppConfig().getTcpForwardConfig();
         try {
             ByteBuf msgByteBuf = (ByteBuf) msg;
             // Get route from cache

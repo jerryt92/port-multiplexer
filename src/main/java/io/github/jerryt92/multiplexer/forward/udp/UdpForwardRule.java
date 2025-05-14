@@ -1,6 +1,6 @@
 package io.github.jerryt92.multiplexer.forward.udp;
 
-import io.github.jerryt92.multiplexer.conf.ConfigReader;
+import io.github.jerryt92.multiplexer.conf.ConfigService;
 import io.github.jerryt92.multiplexer.entity.ForwardTarget;
 import io.github.jerryt92.multiplexer.protocol.udp.UdpProtocolDetection;
 import io.github.jerryt92.multiplexer.protocol.udp.UdpProtocolType;
@@ -16,7 +16,7 @@ public class UdpForwardRule {
     private static final Logger log = LogManager.getLogger(UdpForwardRule.class);
 
     public ForwardTarget getRoute(DatagramPacket msg) {
-        ConfigReader.UdpForwardConfig forwardConfig = ConfigReader.INSTANCE.getAppConfig().getUdpForwardConfig();
+        ConfigService.UdpForwardConfig forwardConfig = ConfigService.INSTANCE.getAppConfig().getUdpForwardConfig();
         try {
             // Get route from cache
             ForwardTarget route = UdpChannelCache.getChannelRouteCache().get(msg.sender());
