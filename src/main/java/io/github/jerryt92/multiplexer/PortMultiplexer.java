@@ -28,8 +28,11 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 public class PortMultiplexer {
     private static final Logger log = LogManager.getLogger(PortMultiplexer.class);
     private static long startTime;
-    private static ServerBootstrap tcpBootstrap;
-    private static Bootstrap udpBootstrap;
+    private static final ServerBootstrap tcpBootstrap = new ServerBootstrap();
+    private static EventLoopGroup tcpBossGroup;
+    private static EventLoopGroup tcpWorkerGroup;
+    private static final Bootstrap udpBootstrap = new Bootstrap();
+    private static EventLoopGroup udpWorkerGroup;
     private static ConfigService.AppConfig appConfig;
 
     public static void main(String[] args) {
@@ -67,9 +70,8 @@ public class PortMultiplexer {
         stopTcpServer();
         if (appConfig.isTcpEnabled()) {
             new Thread(() -> {
-                tcpBootstrap = new ServerBootstrap();
-                EventLoopGroup tcpBossGroup = new NioEventLoopGroup(1);
-                EventLoopGroup tcpWorkerGroup = new NioEventLoopGroup();
+                tcpBossGroup = new NioEventLoopGroup(1);
+                tcpWorkerGroup = new NioEventLoopGroup();
                 try {
                     ChannelHandler tcpChannelHandler = new ChannelInitializer<SocketChannel>() {
                         @Override
@@ -105,8 +107,11 @@ public class PortMultiplexer {
     }
 
     private static void stopTcpServer() {
-        if (tcpBootstrap != null && tcpBootstrap.group() != null && !tcpBootstrap.group().isShutdown()) {
-            tcpBootstrap.group().shutdownGracefully();
+        if (tcpBossGroup != null && !tcpBossGroup.isShutdown()) {
+            tcpBossGroup.shutdownGracefully();
+        }
+        if (tcpWorkerGroup != null && !tcpWorkerGroup.isShutdown()) {
+            tcpWorkerGroup.shutdownGracefully();
         }
     }
 
@@ -114,8 +119,7 @@ public class PortMultiplexer {
         stopUdpServer();
         if (appConfig.isUdpEnabled()) {
             new Thread(() -> {
-                udpBootstrap = new Bootstrap();
-                EventLoopGroup udpWorkerGroup = new NioEventLoopGroup(10);
+                udpWorkerGroup = new NioEventLoopGroup(10);
                 try {
                     ChannelHandler udpChannelHandler = new ChannelInitializer<DatagramChannel>() {
                         @Override
@@ -148,8 +152,8 @@ public class PortMultiplexer {
     }
 
     private static void stopUdpServer() {
-        if (udpBootstrap != null && udpBootstrap.group() != null && !udpBootstrap.group().isShutdown()) {
-            udpBootstrap.group().shutdownGracefully();
+        if (udpWorkerGroup != null && !udpWorkerGroup.isShutdown()) {
+            udpWorkerGroup.shutdownGracefully();
         }
     }
 }
