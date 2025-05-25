@@ -52,7 +52,9 @@ public class UdpResponseHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("", cause);
-        UdpRequestHandler.closeOnFlush(ctx.channel());
+        if (inboundChannel.isActive()) {
+            inboundChannel.close();
+        }
     }
 
     // 关闭连接

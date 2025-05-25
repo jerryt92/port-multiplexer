@@ -18,7 +18,7 @@ public class TcpResponseHandler extends ChannelInboundHandlerAdapter {
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
         if (!inboundChannel.isActive()) {
-            TcpRequestHandler.closeOnFlush(ctx.channel());
+            ctx.close();
         } else {
             ctx.read();
         }
@@ -37,12 +37,14 @@ public class TcpResponseHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        TcpRequestHandler.closeOnFlush(inboundChannel);
+        if (inboundChannel.isActive()) {
+            inboundChannel.close();
+        }
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("", cause);
-        TcpRequestHandler.closeOnFlush(ctx.channel());
+        ctx.close();
     }
 }
