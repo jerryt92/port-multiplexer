@@ -83,7 +83,9 @@ public class PortMultiplexer {
                             .channel(NioServerSocketChannel.class)
                             .childHandler(tcpChannelHandler)
                             // 设置并发连接数
-                            .option(ChannelOption.SO_BACKLOG, 1024)
+                            .option(ChannelOption.SO_BACKLOG, 2048)
+                            // 设置连接超时时间
+                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
                             .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
                             .addListener(future -> {
                                 if (future.isSuccess()) {

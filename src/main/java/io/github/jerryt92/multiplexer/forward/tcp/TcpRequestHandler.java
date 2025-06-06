@@ -39,6 +39,10 @@ public class TcpRequestHandler extends ChannelInboundHandlerAdapter {
                     channel.writeAndFlush(msg);
                     return;
                 }
+                if (channel != null && !channel.isActive()) {
+                    // 显式关闭连接
+                    channel.close();
+                }
                 TcpChannelCache.getChannelClientCache().remove(ctx.channel());
             }
             Bootstrap b = new Bootstrap();
