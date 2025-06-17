@@ -18,6 +18,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
@@ -28,12 +29,15 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 public class PortMultiplexer {
     private static final Logger log = LogManager.getLogger(PortMultiplexer.class);
     private static long startTime;
-    private static final ServerBootstrap tcpBootstrap = new ServerBootstrap();
+    private static Thread tcpThread;
+    private static ServerBootstrap tcpBootstrap;
     private static EventLoopGroup tcpBossGroup;
     private static EventLoopGroup tcpWorkerGroup;
-    private static final Bootstrap udpBootstrap = new Bootstrap();
+    private static Thread udpThread;
+    private static Bootstrap udpBootstrap;
     private static EventLoopGroup udpWorkerGroup;
     private static ConfigService.AppConfig appConfig;
+    private static final ConcurrentHashMap<Thread, Thread> serverThreads = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
         startTime = System.currentTimeMillis();
@@ -61,7 +65,7 @@ public class PortMultiplexer {
             } catch (Throwable t) {
                 log.error("", t);
             }
-        }, 0, 30, java.util.concurrent.TimeUnit.SECONDS);
+        }, 0, 3, java.util.concurrent.TimeUnit.SECONDS);
         runTcpServer(appConfig);
         runUdpServer(appConfig);
     }
@@ -69,46 +73,52 @@ public class PortMultiplexer {
     private static void runTcpServer(ConfigService.AppConfig appConfig) {
         stopTcpServer();
         if (appConfig.isTcpEnabled()) {
-            new Thread(() -> {
-                tcpBossGroup = new NioEventLoopGroup(1);
-                tcpWorkerGroup = new NioEventLoopGroup();
-                try {
-                    ChannelHandler tcpChannelHandler = new ChannelInitializer<SocketChannel>() {
-                        @Override
-                        public void initChannel(SocketChannel socketChannel) {
-                            socketChannel.pipeline().addLast(new TcpRequestHandler(tcpWorkerGroup));
-                        }
-                    };
-                    tcpBootstrap.group(tcpBossGroup, tcpWorkerGroup)
-                            .channel(NioServerSocketChannel.class)
-                            .childHandler(tcpChannelHandler)
-                            // 设置并发连接数
-                            .option(ChannelOption.SO_BACKLOG, 2048)
-                            // 设置连接超时时间
-                            .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
-                            .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
-                            .addListener(future -> {
-                                if (future.isSuccess()) {
-                                    log.info("PortMultiplexer started at tcp-port {} in {}ms", appConfig.getBindConfig().getTcpPort(), System.currentTimeMillis() - startTime);
-                                } else {
-                                    log.error("Failed to start PortMultiplexer", future.cause());
-                                }
-                            })
-                            .sync()
-                            .channel()
-                            .closeFuture()
-                            .sync();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                } finally {
-                    tcpWorkerGroup.shutdownGracefully();
-                    tcpBossGroup.shutdownGracefully();
+            tcpThread = new Thread(() -> {
+                while (!Thread.interrupted() && serverThreads.containsKey(Thread.currentThread())) {
+                    tcpBootstrap = new ServerBootstrap();
+                    tcpBossGroup = new NioEventLoopGroup(1);
+                    tcpWorkerGroup = new NioEventLoopGroup();
+                    try {
+                        ChannelHandler tcpChannelHandler = new ChannelInitializer<SocketChannel>() {
+                            @Override
+                            public void initChannel(SocketChannel socketChannel) {
+                                socketChannel.pipeline().addLast(new TcpRequestHandler(tcpWorkerGroup));
+                            }
+                        };
+                        tcpBootstrap.group(tcpBossGroup, tcpWorkerGroup)
+                                .channel(NioServerSocketChannel.class)
+                                .childHandler(tcpChannelHandler)
+                                // 设置并发连接数
+                                .option(ChannelOption.SO_BACKLOG, 2048)
+                                // 设置连接超时时间
+                                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+                                .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
+                                .addListener(future -> {
+                                    if (future.isSuccess()) {
+                                        log.info("PortMultiplexer started at tcp-port {} in {}ms", appConfig.getBindConfig().getTcpPort(), System.currentTimeMillis() - startTime);
+                                    } else {
+                                        log.error("Failed to start PortMultiplexer", future.cause());
+                                    }
+                                })
+                                .sync()
+                                .channel()
+                                .closeFuture()
+                                .sync();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-            }).start();
+            });
+            serverThreads.put(tcpThread, tcpThread);
+            tcpThread.setDaemon(true);
+            tcpThread.start();
         }
     }
 
     private static void stopTcpServer() {
+        if (tcpThread != null) {
+            serverThreads.remove(tcpThread);
+        }
         if (tcpBossGroup != null && !tcpBossGroup.isShutdown()) {
             tcpBossGroup.shutdownGracefully();
         }
@@ -120,40 +130,47 @@ public class PortMultiplexer {
     private static void runUdpServer(ConfigService.AppConfig appConfig) {
         stopUdpServer();
         if (appConfig.isUdpEnabled()) {
-            new Thread(() -> {
-                udpWorkerGroup = new NioEventLoopGroup(10);
-                try {
-                    ChannelHandler udpChannelHandler = new ChannelInitializer<DatagramChannel>() {
-                        @Override
-                        protected void initChannel(DatagramChannel datagramChannel) {
-                            datagramChannel.pipeline().addLast(new UdpRequestHandler(udpWorkerGroup));
-                        }
-                    };
-                    udpBootstrap.group(udpWorkerGroup)
-                            .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(16384))
-                            .channel(NioDatagramChannel.class)
-                            .handler(udpChannelHandler)
-                            .bind(appConfig.getBindConfig().getUdpHost(), appConfig.getBindConfig().getUdpPort())
-                            .addListener(future -> {
-                                if (future.isSuccess()) {
-                                    log.info("PortMultiplexer started at udp-port {} in {}ms", appConfig.getBindConfig().getUdpPort(), System.currentTimeMillis() - startTime);
-                                } else {
-                                    log.error("Failed to start PortMultiplexer", future.cause());
-                                }
-                            })
-                            .channel()
-                            .closeFuture()
-                            .sync();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                } finally {
-                    udpWorkerGroup.shutdownGracefully();
+            udpThread = new Thread(() -> {
+                while (!Thread.interrupted() && serverThreads.containsKey(Thread.currentThread())) {
+                    udpBootstrap = new Bootstrap();
+                    udpWorkerGroup = new NioEventLoopGroup(10);
+                    try {
+                        ChannelHandler udpChannelHandler = new ChannelInitializer<DatagramChannel>() {
+                            @Override
+                            protected void initChannel(DatagramChannel datagramChannel) {
+                                datagramChannel.pipeline().addLast(new UdpRequestHandler(udpWorkerGroup));
+                            }
+                        };
+                        udpBootstrap.group(udpWorkerGroup)
+                                .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(16384))
+                                .channel(NioDatagramChannel.class)
+                                .handler(udpChannelHandler)
+                                .bind(appConfig.getBindConfig().getUdpHost(), appConfig.getBindConfig().getUdpPort())
+                                .addListener(future -> {
+                                    if (future.isSuccess()) {
+                                        log.info("PortMultiplexer started at udp-port {} in {}ms", appConfig.getBindConfig().getUdpPort(), System.currentTimeMillis() - startTime);
+                                    } else {
+                                        log.error("Failed to start PortMultiplexer", future.cause());
+                                    }
+                                })
+                                .channel()
+                                .closeFuture()
+                                .sync();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
                 }
-            }).start();
+            });
+            serverThreads.put(udpThread, udpThread);
+            udpThread.setDaemon(true);
+            udpThread.start();
         }
     }
 
     private static void stopUdpServer() {
+        if (udpThread != null) {
+            serverThreads.remove(udpThread);
+        }
         if (udpWorkerGroup != null && !udpWorkerGroup.isShutdown()) {
             udpWorkerGroup.shutdownGracefully();
         }
