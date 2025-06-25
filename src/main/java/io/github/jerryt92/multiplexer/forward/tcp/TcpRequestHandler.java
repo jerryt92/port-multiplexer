@@ -4,6 +4,7 @@ import io.github.jerryt92.multiplexer.entity.ForwardTarget;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.EventLoopGroup;
@@ -49,10 +50,16 @@ public class TcpRequestHandler extends ChannelInboundHandlerAdapter {
             b.group(workerGroup);
             b.channel(NioSocketChannel.class);
             b.handler(new TcpResponseHandler(ctx.channel()));
-            ChannelFuture f = b.connect(forwardTarget.getHost(), forwardTarget.getPort()).sync();
-            Channel channel = f.channel();
-            TcpChannelCache.getChannelClientCache().put(ctx.channel(), channel);
-            channel.writeAndFlush(msg);
+            ChannelFuture f = b.connect(forwardTarget.getHost(), forwardTarget.getPort());
+            f.addListener((ChannelFutureListener) future -> {
+                if (future.isSuccess()) {
+                    Channel channel = f.channel();
+                    channel.writeAndFlush(msg);
+                    TcpChannelCache.getChannelClientCache().put(ctx.channel(), channel);
+                } else {
+                    exceptionCaught(ctx, future.cause());
+                }
+            });
         } catch (Exception e) {
             exceptionCaught(ctx, e);
         }
