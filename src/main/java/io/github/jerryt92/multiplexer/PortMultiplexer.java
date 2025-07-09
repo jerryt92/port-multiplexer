@@ -43,29 +43,7 @@ public class PortMultiplexer {
         startTime = System.currentTimeMillis();
         appConfig = ConfigService.INSTANCE.getAppConfig();
         ScheduledExecutorService readConfigCron = new ScheduledThreadPoolExecutor(1);
-        readConfigCron.scheduleAtFixedRate(() -> {
-            try {
-                ConfigService.AppConfig newConfig = ConfigService.INSTANCE.readConfig();
-                if (!appConfig.equals(newConfig)) {
-                    log.info("config changed");
-                    log.info("new config: " + newConfig);
-                    if (!appConfig.getBindConfig().equals(newConfig.getBindConfig()) || appConfig.isTcpEnabled() != newConfig.isTcpEnabled() || appConfig.isUdpEnabled() != newConfig.isUdpEnabled()) {
-                        if (!appConfig.getBindConfig().getTcpHost().equals(newConfig.getBindConfig().getTcpHost()) || appConfig.getBindConfig().getTcpPort() != newConfig.getBindConfig().getTcpPort() || appConfig.isTcpEnabled() != newConfig.isTcpEnabled()) {
-                            log.info("TCP config changed, restarting server...");
-                            runTcpServer(newConfig);
-                        }
-                        if (!appConfig.getBindConfig().getUdpHost().equals(newConfig.getBindConfig().getUdpHost()) || appConfig.getBindConfig().getUdpPort() != newConfig.getBindConfig().getUdpPort() || appConfig.isUdpEnabled() != newConfig.isUdpEnabled()) {
-                            log.info("UDP config changed, restarting server...");
-                            runUdpServer(newConfig);
-                        }
-                    }
-                    ConfigService.INSTANCE.setAppConfig(newConfig);
-                    appConfig = newConfig;
-                }
-            } catch (Throwable t) {
-                log.error("", t);
-            }
-        }, 0, 3, java.util.concurrent.TimeUnit.SECONDS);
+        readConfigCron.scheduleAtFixedRate(PortMultiplexer::daemonThreadRunnable, 0, 3, java.util.concurrent.TimeUnit.SECONDS);
         runTcpServer(appConfig);
         runUdpServer(appConfig);
     }
@@ -173,6 +151,31 @@ public class PortMultiplexer {
         }
         if (udpWorkerGroup != null && !udpWorkerGroup.isShutdown()) {
             udpWorkerGroup.shutdownGracefully();
+        }
+    }
+
+    // 守护线程
+    private static void daemonThreadRunnable() {
+        try {
+            ConfigService.AppConfig newConfig = ConfigService.INSTANCE.readConfig();
+            if (!appConfig.equals(newConfig)) {
+                log.info("config changed");
+                log.info("new config: " + newConfig);
+                if (!appConfig.getBindConfig().equals(newConfig.getBindConfig()) || appConfig.isTcpEnabled() != newConfig.isTcpEnabled() || appConfig.isUdpEnabled() != newConfig.isUdpEnabled()) {
+                    if (!appConfig.getBindConfig().getTcpHost().equals(newConfig.getBindConfig().getTcpHost()) || appConfig.getBindConfig().getTcpPort() != newConfig.getBindConfig().getTcpPort() || appConfig.isTcpEnabled() != newConfig.isTcpEnabled()) {
+                        log.info("TCP config changed, restarting server...");
+                        runTcpServer(newConfig);
+                    }
+                    if (!appConfig.getBindConfig().getUdpHost().equals(newConfig.getBindConfig().getUdpHost()) || appConfig.getBindConfig().getUdpPort() != newConfig.getBindConfig().getUdpPort() || appConfig.isUdpEnabled() != newConfig.isUdpEnabled()) {
+                        log.info("UDP config changed, restarting server...");
+                        runUdpServer(newConfig);
+                    }
+                }
+                ConfigService.INSTANCE.setAppConfig(newConfig);
+                appConfig = newConfig;
+            }
+        } catch (Throwable t) {
+            log.error("", t);
         }
     }
 }
