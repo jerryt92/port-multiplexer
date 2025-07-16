@@ -38,6 +38,10 @@ public class PortMultiplexer {
     private static EventLoopGroup udpWorkerGroup;
     private static ConfigService.AppConfig appConfig;
     private static final ConcurrentHashMap<Thread, Thread> serverThreads = new ConcurrentHashMap<>();
+    /**
+     * 缓冲区大小100 MB
+     */
+    private static final int bufferSize = 100 * 1024 * 1024;
 
     public static void main(String[] args) {
         startTime = System.currentTimeMillis();
@@ -67,9 +71,16 @@ public class PortMultiplexer {
                                 .channel(NioServerSocketChannel.class)
                                 .childHandler(tcpChannelHandler)
                                 // 设置并发连接数
-                                .option(ChannelOption.SO_BACKLOG, 2048)
+                                .option(ChannelOption.SO_BACKLOG, 16384)
                                 // 设置连接超时时间
                                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
+                                // 设置接收缓冲区大小
+                                .option(ChannelOption.SO_RCVBUF, bufferSize)
+                                // 设置 ByteBuf 分配器，固定大小缓冲区
+                                .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(bufferSize))
+                                // 子通道（客户端连接）也设置相同参数
+                                .childOption(ChannelOption.SO_RCVBUF, bufferSize)
+                                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(bufferSize))
                                 .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
                                 .addListener(future -> {
                                     if (future.isSuccess()) {
