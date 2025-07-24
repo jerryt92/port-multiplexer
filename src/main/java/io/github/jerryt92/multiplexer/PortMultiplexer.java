@@ -5,6 +5,7 @@ import io.github.jerryt92.multiplexer.forward.tcp.TcpRequestHandler;
 import io.github.jerryt92.multiplexer.forward.udp.UdpRequestHandler;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -39,9 +40,9 @@ public class PortMultiplexer {
     private static ConfigService.AppConfig appConfig;
     private static final ConcurrentHashMap<Thread, Thread> serverThreads = new ConcurrentHashMap<>();
     /**
-     * 缓冲区大小100 MB
+     * 最大缓冲区大小1024MB
      */
-    private static final int bufferSize = 100 * 1024 * 1024;
+    private static final int maxBufferSize = 1024 * 1024 * 1024;
 
     public static void main(String[] args) {
         startTime = System.currentTimeMillis();
@@ -75,12 +76,11 @@ public class PortMultiplexer {
                                 // 设置连接超时时间
                                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
                                 // 设置接收缓冲区大小
-                                .option(ChannelOption.SO_RCVBUF, bufferSize)
-                                // 设置 ByteBuf 分配器，固定大小缓冲区
-                                .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(bufferSize))
+                                .option(ChannelOption.SO_RCVBUF, maxBufferSize)
+                                // 设置自动分配缓冲区
+                                .option(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(1024, 4096, maxBufferSize))
                                 // 子通道（客户端连接）也设置相同参数
-                                .childOption(ChannelOption.SO_RCVBUF, bufferSize)
-                                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(bufferSize))
+                                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(1024, 4096, maxBufferSize))
                                 .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
                                 .addListener(future -> {
                                     if (future.isSuccess()) {
