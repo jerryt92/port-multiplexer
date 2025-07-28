@@ -8,6 +8,13 @@ This is a port multiplexer implemented based on Netty.
 
 - Listens on an external port and distributes different types of traffic to different internal ports.
 - Supports TCP and UDP protocols.
+- Graphical:
+
+    ```
+                                ┌─ SSH <-> 22
+    30001 <-> port-multiplexer ─┼─ MQTT <-> 1883
+                                └─ SSL <-> 443
+    ```
 
 ## Usage Instructions
 

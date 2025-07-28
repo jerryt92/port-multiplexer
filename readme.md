@@ -14,14 +14,13 @@ For the English version of this README, please refer to [README_en.md](readme_en
 
 - 监听一个外部端口，将不同类型的流量分发到不同的内部端口。
 - 支持 TCP 和 UDP 协议。
+- 图例：
 
-图例：
-
-```
-                            ┌─ SSH <-> 22
-30001 <-> port-multiplexer ─┼─ MQTT <-> 1883
-                            └─ SSL <-> 443
-```
+    ```
+                                ┌─ SSH <-> 22
+    30001 <-> port-multiplexer ─┼─ MQTT <-> 1883
+                                └─ SSL <-> 443
+    ```
 
 ## 使用说明
 
