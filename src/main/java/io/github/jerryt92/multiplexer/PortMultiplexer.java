@@ -10,7 +10,6 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.FixedRecvByteBufAllocator;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.DatagramChannel;
 import io.netty.channel.socket.SocketChannel;
@@ -78,9 +77,9 @@ public class PortMultiplexer {
                                 // 设置接收缓冲区大小
                                 .option(ChannelOption.SO_RCVBUF, maxBufferSize)
                                 // 设置自动分配缓冲区
-                                .option(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(1024, 4096, maxBufferSize))
+                                .option(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(100 * 1024 * 1024, 100 * 1024 * 1024, maxBufferSize))
                                 // 子通道（客户端连接）也设置相同参数
-                                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(1024, 4096, maxBufferSize))
+                                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(100 * 1024 * 1024, 100 * 1024 * 1024, maxBufferSize))
                                 .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
                                 .addListener(future -> {
                                     if (future.isSuccess()) {
@@ -131,7 +130,7 @@ public class PortMultiplexer {
                             }
                         };
                         udpBootstrap.group(udpWorkerGroup)
-                                .option(ChannelOption.RCVBUF_ALLOCATOR, new FixedRecvByteBufAllocator(16384))
+                                .option(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(100 * 1024 * 1024, 100 * 1024 * 1024, maxBufferSize))
                                 .channel(NioDatagramChannel.class)
                                 .handler(udpChannelHandler)
                                 .bind(appConfig.getBindConfig().getUdpHost(), appConfig.getBindConfig().getUdpPort())
