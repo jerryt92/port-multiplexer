@@ -53,7 +53,7 @@ pid=$(ps -aux | grep ${MAIN_CLASS} | grep -v grep | awk '{print $2}')
 parseInput $@
 
 JAVA_OPTS="-Duser.language=${USER_LANGUAGE} -Duser.country=${USER_COUNTRY}"
-JAVA_OPTS="${JAVA_OPTS} -Xms256m -Xmx256m"
+JAVA_OPTS="${JAVA_OPTS} -Xms256m -Xmx2g"
 JAVA_OPTS="${JAVA_OPTS} -XX:MetaspaceSize=80m -XX:MaxMetaspaceSize=128m"
 JAVA_OPTS="${JAVA_OPTS} -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=utf-8"
 
