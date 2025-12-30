@@ -74,10 +74,6 @@ public class PortMultiplexer {
                                 .option(ChannelOption.SO_BACKLOG, 16384)
                                 // 设置连接超时时间
                                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000)
-                                // 设置自动分配缓冲区
-                                .option(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(100 * 1024 * 1024, 100 * 1024 * 1024, maxBufferSize))
-                                // 子通道（客户端连接）也设置相同参数
-                                .childOption(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(100 * 1024 * 1024, 100 * 1024 * 1024, maxBufferSize))
                                 .bind(appConfig.getBindConfig().getTcpHost(), appConfig.getBindConfig().getTcpPort())
                                 .addListener(future -> {
                                     if (future.isSuccess()) {
