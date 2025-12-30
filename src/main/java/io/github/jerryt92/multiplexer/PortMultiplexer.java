@@ -5,7 +5,6 @@ import io.github.jerryt92.multiplexer.forward.tcp.TcpRequestHandler;
 import io.github.jerryt92.multiplexer.forward.udp.UdpRequestHandler;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.AdaptiveRecvByteBufAllocator;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -38,10 +37,6 @@ public class PortMultiplexer {
     private static EventLoopGroup udpWorkerGroup;
     private static ConfigService.AppConfig appConfig;
     private static final ConcurrentHashMap<Thread, Thread> serverThreads = new ConcurrentHashMap<>();
-    /**
-     * 最大缓冲区大小1024MB
-     */
-    private static final int maxBufferSize = 1024 * 1024 * 1024;
 
     public static void main(String[] args) {
         startTime = System.currentTimeMillis();
@@ -124,7 +119,6 @@ public class PortMultiplexer {
                             }
                         };
                         udpBootstrap.group(udpWorkerGroup)
-                                .option(ChannelOption.RCVBUF_ALLOCATOR, new AdaptiveRecvByteBufAllocator(100 * 1024 * 1024, 100 * 1024 * 1024, maxBufferSize))
                                 .channel(NioDatagramChannel.class)
                                 .handler(udpChannelHandler)
                                 .bind(appConfig.getBindConfig().getUdpHost(), appConfig.getBindConfig().getUdpPort())
