@@ -46,6 +46,7 @@ public class ConfigService {
             tcpForwardConfig.setSsl((String) tcpForward.get("ssl"));
             tcpForwardConfig.setHttp((String) tcpForward.get("http"));
             tcpForwardConfig.setSsh((String) tcpForward.get("ssh"));
+            tcpForwardConfig.setRdp((String) tcpForward.get("rdp"));
             tcpForwardConfig.setMqtt((String) tcpForward.get("mqtt"));
             tcpForwardConfig.setAllowedProtocols(new HashSet<>());
             for (String protocol : ((String) tcpForward.get("allowed")).split(",")) {
@@ -62,6 +63,9 @@ public class ConfigService {
                         break;
                     case "ssh":
                         tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.SSH);
+                        break;
+                    case "rdp":
+                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.RDP);
                         break;
                     case "default":
                         tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.UNKNOWN);
@@ -137,6 +141,7 @@ public class ConfigService {
         private String ssl;
         private String http;
         private String ssh;
+        private String rdp;
         private String mqtt;
 
         public String getDefault() {

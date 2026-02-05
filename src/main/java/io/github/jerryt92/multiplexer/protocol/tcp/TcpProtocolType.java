@@ -6,5 +6,6 @@ public enum TcpProtocolType {
     HTTP,
     WEBSOCKET,
     MQTT,
-    SSH
+    SSH,
+    RDP
 }

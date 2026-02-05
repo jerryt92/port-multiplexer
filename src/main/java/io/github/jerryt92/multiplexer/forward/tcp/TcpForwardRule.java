@@ -45,6 +45,10 @@ public class TcpForwardRule {
                         address = forwardConfig.getSsh().split(":")[0];
                         port = Integer.parseInt(forwardConfig.getSsh().split(":")[1]);
                         break;
+                    case RDP:
+                        address = forwardConfig.getRdp().split(":")[0];
+                        port = Integer.parseInt(forwardConfig.getRdp().split(":")[1]);
+                        break;
                     case MQTT:
                         address = forwardConfig.getMqtt().split(":")[0];
                         port = Integer.parseInt(forwardConfig.getMqtt().split(":")[1]);

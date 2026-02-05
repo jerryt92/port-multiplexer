@@ -47,6 +47,18 @@ public final class TcpProtocolDetection {
             return TcpProtocolType.WEBSOCKET;
         }
 
+        // Check for RDP (TPKT Header)
+        // Byte 0: Version 3 (0x03)
+        // Byte 1: Reserved 0 (0x00)
+        // Byte 2-3: Length (Must be >= 4, usually header is 4 bytes)
+        if (initialBytes[0] == 0x03 && initialBytes[1] == 0x00) {
+            // 进一步计算长度是否合法，防止误判
+            int length = (initialBytes[2] & 0xFF) << 8 | (initialBytes[3] & 0xFF);
+            if (length >= 4) {
+                return TcpProtocolType.RDP;
+            }
+        }
+
         // Unknown protocol
         return TcpProtocolType.UNKNOWN;
     }
