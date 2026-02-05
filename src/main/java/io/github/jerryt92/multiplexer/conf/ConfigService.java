@@ -12,9 +12,12 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.InputStream;
 import java.net.InetAddress;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 
 public class ConfigService {
     private static final Logger log = LogManager.getLogger(ConfigService.class);
@@ -42,36 +45,8 @@ public class ConfigService {
             bindConfig.setTcpHost(InetAddress.getByName(StringUtils.defaultIfBlank((String) tcpBind.get("host"), "0.0.0.0")));
             bindConfig.setTcpPort((Integer) tcpBind.get("port"));
             TcpForwardConfig tcpForwardConfig = new TcpForwardConfig();
-            tcpForwardConfig.setDefault((String) tcpForward.get("default"));
-            tcpForwardConfig.setSsl((String) tcpForward.get("ssl"));
-            tcpForwardConfig.setHttp((String) tcpForward.get("http"));
-            tcpForwardConfig.setSsh((String) tcpForward.get("ssh"));
-            tcpForwardConfig.setRdp((String) tcpForward.get("rdp"));
-            tcpForwardConfig.setMqtt((String) tcpForward.get("mqtt"));
-            tcpForwardConfig.setAllowedProtocols(new HashSet<>());
-            for (String protocol : ((String) tcpForward.get("allowed")).split(",")) {
-                protocol = protocol.trim();
-                switch (protocol) {
-                    case "ssl":
-                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.SSL_TLS);
-                        break;
-                    case "http":
-                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.HTTP);
-                        break;
-                    case "mqtt":
-                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.MQTT);
-                        break;
-                    case "ssh":
-                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.SSH);
-                        break;
-                    case "rdp":
-                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.RDP);
-                        break;
-                    case "default":
-                        tcpForwardConfig.getAllowedProtocols().add(TcpProtocolType.UNKNOWN);
-                        break;
-                }
-            }
+            tcpForwardConfig.setAllowedProtocols(parseAllowedProtocols(tcpForward.get("allowed"), TcpProtocolType::fromConfigKey));
+            populateTargets(tcpForwardConfig, tcpForward, TcpProtocolType::fromConfigKey);
             config.setTcpForwardConfig(tcpForwardConfig);
             // UDP
             Map<String, Object> udpConfigMap = (Map<String, Object>) obj.get("udp");
@@ -81,26 +56,97 @@ public class ConfigService {
             bindConfig.setUdpHost(InetAddress.getByName(StringUtils.defaultIfBlank((String) udpBind.get("host"), "0.0.0.0")));
             bindConfig.setUdpPort((Integer) udpBind.get("port"));
             UdpForwardConfig udpForwardConfig = new UdpForwardConfig();
-            udpForwardConfig.setSnmp((String) udpForward.get("snmp"));
-            udpForwardConfig.setDefault((String) udpForward.get("default"));
-            udpForwardConfig.setAllowedProtocols(new HashSet<>());
-            for (String protocol : ((String) udpForward.get("allowed")).split(",")) {
-                protocol = protocol.trim();
-                switch (protocol) {
-                    case "snmp":
-                        udpForwardConfig.getAllowedProtocols().add(UdpProtocolType.SNMP);
-                        break;
-                    case "default":
-                        udpForwardConfig.getAllowedProtocols().add(UdpProtocolType.UNKNOWN);
-                        break;
-                }
-            }
+            udpForwardConfig.setAllowedProtocols(parseAllowedProtocols(udpForward.get("allowed"), UdpProtocolType::fromConfigKey));
+            populateTargets(udpForwardConfig, udpForward, UdpProtocolType::fromConfigKey);
             config.setUdpForwardConfig(udpForwardConfig);
         } catch (Exception e) {
             log.error("Failed to read configuration file", e);
             throw new RuntimeException("Failed to read configuration file", e);
         }
         return config;
+    }
+
+    private static <T> HashSet<T> parseAllowedProtocols(Object rawAllowed, Function<String, T> mapper) {
+        HashSet<T> result = new HashSet<>();
+        if (rawAllowed == null) {
+            return result;
+        }
+        if (rawAllowed instanceof String) {
+            for (String token : ((String) rawAllowed).split(",")) {
+                addAllowedToken(result, mapper, token);
+            }
+        } else if (rawAllowed instanceof List) {
+            for (Object token : (List<?>) rawAllowed) {
+                addAllowedToken(result, mapper, String.valueOf(token));
+            }
+        } else {
+            addAllowedToken(result, mapper, String.valueOf(rawAllowed));
+        }
+        return result;
+    }
+
+    private static <T> void addAllowedToken(HashSet<T> result, Function<String, T> mapper, String token) {
+        if (StringUtils.isBlank(token)) {
+            return;
+        }
+        T protocol = mapper.apply(token.trim());
+        if (protocol != null) {
+            result.add(protocol);
+        }
+    }
+
+    private static String parseTargetValue(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof String) {
+            return (String) value;
+        }
+        if (value instanceof Map) {
+            Map<?, ?> mapValue = (Map<?, ?>) value;
+            if (mapValue.isEmpty()) {
+                return null;
+            }
+            Object key = mapValue.keySet().iterator().next();
+            return String.valueOf(key);
+        }
+        return String.valueOf(value);
+    }
+
+    private static void populateTargets(TcpForwardConfig config, Map<String, Object> forward, Function<String, TcpProtocolType> mapper) {
+        config.setTargets(new HashMap<>());
+        for (Map.Entry<String, Object> entry : forward.entrySet()) {
+            String key = entry.getKey();
+            if ("allowed".equalsIgnoreCase(key)) {
+                continue;
+            }
+            TcpProtocolType protocol = mapper.apply(key);
+            if (protocol == null) {
+                continue;
+            }
+            String target = parseTargetValue(entry.getValue());
+            if (StringUtils.isNotBlank(target)) {
+                config.getTargets().put(protocol, target.trim());
+            }
+        }
+    }
+
+    private static void populateTargets(UdpForwardConfig config, Map<String, Object> forward, Function<String, UdpProtocolType> mapper) {
+        config.setTargets(new HashMap<>());
+        for (Map.Entry<String, Object> entry : forward.entrySet()) {
+            String key = entry.getKey();
+            if ("allowed".equalsIgnoreCase(key)) {
+                continue;
+            }
+            UdpProtocolType protocol = mapper.apply(key);
+            if (protocol == null) {
+                continue;
+            }
+            String target = parseTargetValue(entry.getValue());
+            if (StringUtils.isNotBlank(target)) {
+                config.getTargets().put(protocol, target.trim());
+            }
+        }
     }
 
     @Data
@@ -137,48 +183,26 @@ public class ConfigService {
     @Data
     public static class TcpForwardConfig {
         private HashSet<TcpProtocolType> allowedProtocols;
-        private String defaultAddress;
-        private String ssl;
-        private String http;
-        private String ssh;
-        private String rdp;
-        private String mqtt;
-
-        public String getDefault() {
-            return defaultAddress;
-        }
-
-        public void setDefault(String defaultAddress) {
-            this.defaultAddress = defaultAddress;
-        }
+        private Map<TcpProtocolType, String> targets;
 
         @Override
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;
             TcpForwardConfig that = (TcpForwardConfig) o;
-            return Objects.equals(allowedProtocols, that.allowedProtocols) && Objects.equals(defaultAddress, that.defaultAddress) && Objects.equals(ssl, that.ssl) && Objects.equals(http, that.http) && Objects.equals(ssh, that.ssh) && Objects.equals(mqtt, that.mqtt);
+            return Objects.equals(allowedProtocols, that.allowedProtocols) && Objects.equals(targets, that.targets);
         }
     }
 
     @Data
     public static class UdpForwardConfig {
         private HashSet<UdpProtocolType> allowedProtocols;
-        private String defaultAddress;
-        private String snmp;
-
-        public String getDefault() {
-            return defaultAddress;
-        }
-
-        public void setDefault(String defaultAddress) {
-            this.defaultAddress = defaultAddress;
-        }
+        private Map<UdpProtocolType, String> targets;
 
         @Override
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;
             UdpForwardConfig that = (UdpForwardConfig) o;
-            return Objects.equals(allowedProtocols, that.allowedProtocols) && Objects.equals(defaultAddress, that.defaultAddress) && Objects.equals(snmp, that.snmp);
+            return Objects.equals(allowedProtocols, that.allowedProtocols) && Objects.equals(targets, that.targets);
         }
     }
 }
