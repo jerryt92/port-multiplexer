@@ -13,7 +13,8 @@ This is a port multiplexer implemented based on Netty.
     ```
                                 ┌─ SSH <-> 22
     30001 <-> port-multiplexer ─┼─ MQTT <-> 1883
-                                └─ SSL <-> 443
+                                ├─ SSL <-> 443
+                                └─ RDP <-> 3389
     ```
 
 ## Usage Instructions

@@ -19,7 +19,8 @@ For the English version of this README, please refer to [README_en.md](readme_en
     ```
                                 ┌─ SSH <-> 22
     30001 <-> port-multiplexer ─┼─ MQTT <-> 1883
-                                └─ SSL <-> 443
+                                ├─ SSL <-> 443
+                                └─ RDP <-> 3389
     ```
 
 ## 使用说明
