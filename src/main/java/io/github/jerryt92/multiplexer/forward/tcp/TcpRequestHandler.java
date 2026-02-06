@@ -18,18 +18,17 @@ import org.apache.logging.log4j.Logger;
  */
 public class TcpRequestHandler extends ChannelInboundHandlerAdapter {
     private static final Logger log = LogManager.getLogger(TcpRequestHandler.class);
-    private final TcpForwardRule tcpForwardRule;
+    private static final TcpForwardRule TCP_FORWARD_RULE = new TcpForwardRule();
     private final EventLoopGroup workerGroup;
 
     public TcpRequestHandler(EventLoopGroup workerGroup) {
         this.workerGroup = workerGroup;
-        this.tcpForwardRule = new TcpForwardRule();
     }
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, Object msg) {
         try {
-            ForwardTarget forwardTarget = tcpForwardRule.getRoute(ctx, msg);
+            ForwardTarget forwardTarget = TCP_FORWARD_RULE.getRoute(ctx, msg);
             if (forwardTarget == null || forwardTarget.isReject()) {
                 ctx.channel().close();
                 return;

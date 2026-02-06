@@ -8,7 +8,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public class UdpResponseHandler extends ChannelInboundHandlerAdapter {
@@ -16,7 +16,7 @@ public class UdpResponseHandler extends ChannelInboundHandlerAdapter {
     public static final Long CHANNEL_IDLE_TIMEOUT_MINUTE = 10L;
     private final Channel inboundChannel;
     private final InetSocketAddress srcSocketAddress;
-    private Long closeTimestamp;
+    private ScheduledFuture<?> closeFuture;
 
     public UdpResponseHandler(Channel inboundChannel, InetSocketAddress srcSocketAddress) {
         this.inboundChannel = inboundChannel;
@@ -25,28 +25,29 @@ public class UdpResponseHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) {
-        // 10分钟之后自动关闭
-        this.closeTimestamp = System.currentTimeMillis() + CHANNEL_IDLE_TIMEOUT_MINUTE * 60 * 1000;
-        new Thread(() -> {
-            while (System.currentTimeMillis() < closeTimestamp) {
-                // 10min
-                try {
-                    new CountDownLatch(1).await(10, TimeUnit.MINUTES);
-                } catch (InterruptedException e) {
-                    log.error("", e);
-                }
-            }
-            ctx.channel().close();
-        }).start();
+        // schedule automatic close after idle timeout
+        resetIdleTimer(ctx);
     }
 
     @Override
     public void channelRead(final ChannelHandlerContext ctx, Object msg) {
-        this.closeTimestamp = System.currentTimeMillis() + CHANNEL_IDLE_TIMEOUT_MINUTE * 60 * 1000;
+        // refresh idle timer on each response
+        resetIdleTimer(ctx);
         DatagramPacket responsePacket = (DatagramPacket) msg;
         // 使用 DatagramPacket 指定目标地址
         DatagramPacket outboundPacket = new DatagramPacket(responsePacket.content().retain(), srcSocketAddress);
         inboundChannel.writeAndFlush(outboundPacket);
+    }
+
+    private void resetIdleTimer(ChannelHandlerContext ctx) {
+        if (closeFuture != null && !closeFuture.isDone()) {
+            closeFuture.cancel(false);
+        }
+        closeFuture = ctx.executor().schedule(() -> {
+            if (ctx.channel().isOpen()) {
+                ctx.channel().close();
+            }
+        }, CHANNEL_IDLE_TIMEOUT_MINUTE, TimeUnit.MINUTES);
     }
 
     @Override
@@ -60,6 +61,9 @@ public class UdpResponseHandler extends ChannelInboundHandlerAdapter {
     // 关闭连接
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
+        if (closeFuture != null && !closeFuture.isDone()) {
+            closeFuture.cancel(false);
+        }
         UdpChannelCache.getChannelClientCache().remove(srcSocketAddress);
         UdpChannelCache.getChannelRouteCache().remove(srcSocketAddress);
         super.channelInactive(ctx);
