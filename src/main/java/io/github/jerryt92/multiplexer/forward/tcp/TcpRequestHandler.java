@@ -9,6 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.ReferenceCountUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -33,29 +34,43 @@ public class TcpRequestHandler extends ChannelInboundHandlerAdapter {
                 ctx.channel().close();
                 return;
             }
-            if (TcpChannelCache.getChannelClientCache().containsKey(ctx.channel())) {
-                Channel channel = TcpChannelCache.getChannelClientCache().get(ctx.channel());
-                if (channel != null && channel.isActive()) {
-                    channel.writeAndFlush(msg);
+            TcpChannelCache.OutboundState existing = TcpChannelCache.getChannelClientCache().get(ctx.channel());
+            if (existing != null) {
+                if (existing.getOutbound() != null && existing.getOutbound().isActive()) {
+                    existing.getOutbound().writeAndFlush(msg);
                     return;
                 }
-                if (channel != null && !channel.isActive()) {
-                    // 显式关闭连接
-                    channel.close();
+                if (existing.getConnectFuture() != null && !existing.getConnectFuture().isDone()) {
+                    existing.getPending().add(ReferenceCountUtil.retain(msg));
+                    return;
                 }
+                cleanupState(existing);
                 TcpChannelCache.getChannelClientCache().remove(ctx.channel());
             }
             Bootstrap b = new Bootstrap();
             b.group(workerGroup);
             b.channel(NioSocketChannel.class);
             b.handler(new TcpResponseHandler(ctx.channel()));
+            TcpChannelCache.OutboundState state = new TcpChannelCache.OutboundState();
+            state.getPending().add(ReferenceCountUtil.retain(msg));
+            TcpChannelCache.getChannelClientCache().put(ctx.channel(), state);
+            ctx.channel().config().setAutoRead(false);
             ChannelFuture f = b.connect(forwardTarget.getHost(), forwardTarget.getPort());
+            state.setConnectFuture(f);
             f.addListener((ChannelFutureListener) future -> {
                 if (future.isSuccess()) {
-                    Channel channel = f.channel();
-                    channel.writeAndFlush(msg);
-                    TcpChannelCache.getChannelClientCache().put(ctx.channel(), channel);
+                    Channel channel = future.channel();
+                    state.setOutbound(channel);
+                    Object pendingMsg;
+                    while ((pendingMsg = state.getPending().poll()) != null) {
+                        channel.write(pendingMsg);
+                    }
+                    channel.flush();
+                    ctx.channel().config().setAutoRead(true);
+                    ctx.read();
                 } else {
+                    cleanupState(state);
+                    TcpChannelCache.getChannelClientCache().remove(ctx.channel());
                     exceptionCaught(ctx, future.cause());
                 }
             });
@@ -72,8 +87,20 @@ public class TcpRequestHandler extends ChannelInboundHandlerAdapter {
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        TcpChannelCache.getChannelClientCache().remove(ctx.channel());
-        TcpChannelCache.getChannelRouteCache().remove(ctx.channel());
+        TcpChannelCache.OutboundState state = TcpChannelCache.getChannelClientCache().remove(ctx.channel());
+        if (state != null) {
+            cleanupState(state);
+        }
         super.channelInactive(ctx);
+    }
+
+    private void cleanupState(TcpChannelCache.OutboundState state) {
+        if (state.getOutbound() != null) {
+            state.getOutbound().close();
+        }
+        Object pendingMsg;
+        while ((pendingMsg = state.getPending().poll()) != null) {
+            ReferenceCountUtil.release(pendingMsg);
+        }
     }
 }
